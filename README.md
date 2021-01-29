@@ -1,0 +1,2 @@
+# mcadmin
+Minecraft admin script
