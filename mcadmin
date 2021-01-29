@@ -187,28 +187,26 @@ upgrade () {
     unzip $NEWEST_ZIP_FILE
     rm $NEWEST_ZIP_FILE
 	
-	if [ ! -d "$SERVER_ROOT/minecraft_configs" ]; then
+    if [ ! -d "$SERVER_ROOT/worlds" ]; then
     
         mkdir -p $SERVER_ROOT/worlds
 
     fi
 
-	if [ ! -d "$SERVER_ROOT/minecraft_configs" ]; then
+    if [ ! -d "$SERVER_ROOT/minecraft_configs" ]; then
 	
-		mkdir -p $SERVER_ROOT/minecraft_configs
-		mv server.properties $SERVER_ROOT/minecraft_configs/
-		mv *.json $SERVER_ROOT/minecraft_configs/
+	mkdir -p $SERVER_ROOT/minecraft_configs
+	mv server.properties $SERVER_ROOT/minecraft_configs/
+	mv *.json $SERVER_ROOT/minecraft_configs/
 		
-	fi
+    fi
 	
     if [ -d "worlds" ]; then
 
         rm -rf worlds
 
     fi
-
-    rm -f *.json server.properties
-
+    
     ln -nsf $SERVER_ROOT/worlds worlds
     ln -nsf $SERVER_ROOT/minecraft_configs/* ./
 	
