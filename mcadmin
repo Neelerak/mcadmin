@@ -207,6 +207,8 @@ upgrade () {
 
     fi
 
+    rm -f *.json server.properties
+
     ln -nsf $SERVER_ROOT/worlds worlds
     ln -nsf $SERVER_ROOT/minecraft_configs/* ./
 	
