@@ -98,7 +98,7 @@ count_down () {
 status () {
 
     SCREEN_COUNT=$(screen -ls | grep bedrock_server | wc -l)
-    PROCESS_COUNT=$(ps -ef | grep ./bedrock_server | grep -v grep | wc -l)
+    PROCESS_COUNT=$(ps -ef | grep ./bedrock_server | grep -v grep | grep -v tmp | wc -l)
 
     if [ "$SCREEN_COUNT" -ne 0 ]
     then
@@ -119,7 +119,7 @@ status () {
 start () {
 
     SCREEN_COUNT=$(screen -ls | grep bedrock_server | wc -l)
-    PROCESS_COUNT=$(ps -ef | grep ./bedrock_server | grep -v grep | wc -l)
+    PROCESS_COUNT=$(ps -ef | grep ./bedrock_server | grep -v grep | grep -v tmp | wc -l)
 
     if [ "$PROCESS_COUNT" -ne 0 ]
     then
