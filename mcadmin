@@ -1,0 +1,365 @@
+#! /bin/bash
+
+LOG_FILE='/tmp/bedrock_server.log'
+SERVER_START_COMMAND="./bedrock_server >> $LOG_FILE"
+SCREEN_NAME='bedrock_server'
+SERVER_ROOT='/minecraft'
+SERVER_PREFIX='minecraft_server_bedrock_'
+EXPORT_FOLDER="/root/world_exports"
+EXPORT_OWNER='root:root'
+
+if [ ! -d "$SERVER_ROOT/minecraft_server_bedrock" ]; then
+	if [[ $1 != 'init' ]]; then
+		echo "This server has not been setup, please run mcdamin init to continue"
+		exit
+	fi
+fi
+
+
+SWD=$(ls -t $SERVER_ROOT/minecraft_server_bedrock | head -n1)
+VERSION=$(echo $SWD | sed -e "s/^$SERVER_PREFIX//")
+EXPORTDATE=$(date +%Y%m%d%H%M%S)
+SDC="${2:-300}"
+
+init () {
+
+	mkdir -p $SERVER_ROOT/minecraft_server_bedrock
+	mkdir -p $SERVER_ROOT/world_backups
+	mkdir -p $EXPORT_FOLDER
+	
+	upgrade
+
+}
+
+current_world_name () {
+
+	echo "$WORLDNAME is the current world."
+
+}
+
+command_to_screen () {
+
+    # echo "COMMAND: $1"
+    screen -S $SCREEN_NAME -X stuff "$1\n"
+
+}
+
+usage () {
+
+	echo "Usage: mcadmin <command>"
+	echo -e "\tValid commands:"
+	echo -e "\t\tstart: Starts the Minecraft Server in a screen named $SCREEN_NAME"
+	echo -e "\t\tstop: Stops the Minecraft Server in a screen named $SCREEN_NAME"
+	echo -e "\t\trestart: Retarts the Minecraft Server in a screen named $SCREEN_NAME"
+	echo -e "\t\tlogs: Shows last logs of Minecraft Server in a screen named $SCREEN_NAME"
+	echo -e "\t\tupgrade: Attempts to upgrade Minecraft Server to newest server"
+	echo -e "\t\tbackup: Backup current minecraft world"
+	echo -e "\t\trestore: Restore latest backup of current minecraft world"
+	echo -e "\t\texport: Export current minecraft world for download, as zip"
+	echo -e "\t\timport: Replace current minecraft world with latest import zip"
+	echo -e "\t\tcommand: Run command against the minecraft server console"
+	echo -e "\t\tversion: Returns current version Minecraft Server"
+	echo -e "\n\n"
+}
+
+count_down () {
+
+    return
+
+    command_to_screen "say $1"
+    echo "$1"
+
+    XSECONDS=$2
+
+    while [ $XSECONDS -gt 0 ]
+    do
+        if [ $XSECONDS -gt 60 ]
+        then
+            sleep 60s
+            let XSECONDS=$XSECONDS-60
+            let MINUTES=$XSECONDS/60
+            # echo "XSECONDS: $XSECONDS"
+            # echo "MINUTES: $MINUTES"
+            command_to_screen "say $MINUTES minutes remaining until shut down, please log off server."
+            echo "$MINUTES minutes remaining until shut down, please log off server."
+        else
+            sleep $XSECONDS
+            XSECONDS=0
+            command_to_screen "say Server is shutting down!"
+            echo "Server is shutting down!"
+        fi
+    done
+
+    #Shutdown
+
+}
+
+
+status () {
+
+    SCREEN_COUNT=$(screen -ls | grep bedrock_server | wc -l)
+    PROCESS_COUNT=$(ps -ef | grep ./bedrock_server | grep -v grep | wc -l)
+
+    if [ "$SCREEN_COUNT" -ne 0 ]
+    then
+        echo "Screen is running!"
+    else
+        echo "Screen is stopped!"
+    fi
+
+    if [ "$PROCESS_COUNT" -ne 0 ]
+    then
+        echo "Server is running!"
+    else
+        echo "Server is stopped!"
+    fi
+
+}
+
+start () {
+
+    SCREEN_COUNT=$(screen -ls | grep bedrock_server | wc -l)
+    PROCESS_COUNT=$(ps -ef | grep ./bedrock_server | grep -v grep | wc -l)
+
+    if [ "$PROCESS_COUNT" -ne 0 ]
+    then
+        echo "Server is already running!"
+        exit
+    fi
+    
+    if [ "$SCREEN_COUNT" == 0 ]
+    then
+        echo "Starting Minecraft Server"
+    	screen -dmS $SCREEN_NAME
+        command_to_screen "cd $SERVER_ROOT/minecraft_server_bedrock/$SWD"
+        command_to_screen "$SERVER_START_COMMAND"
+    	exit
+    elif [ "$SCREEN_COUNT" == 1 ]
+    then
+        echo "Starting Minecraft Server"
+        command_to_screen "cd $SERVER_ROOT/minecraft_server_bedrock/$SWD"
+        command_to_screen "$SERVER_START_COMMAND"
+	    exit
+    fi
+
+    echo "You have too many screens named the same, please resolve screen issue"
+
+}
+
+stop () {
+
+    PROCESS_COUNT=$(ps -ef | grep ./bedrock_server | grep -v grep | wc -l)
+
+    if [ "$PROCESS_COUNT" == 0 ]
+    then
+        echo "Server is not currently running!"
+        exit
+    fi
+
+    echo "Stopping Minecraft Server"
+    command_to_screen 'stop'
+
+    if [ "$1" != "stop" ]
+    then
+        sleep 5s
+    fi
+
+}
+
+upgrade () {
+
+    NEWEST_ZIP_URI=$(curl -s https://www.minecraft.net/en-us/download/server/bedrock | grep Download | grep serverBedrockLinux | grep -o '<a .*href=.*>' | sed -e 's/<a /\n<a /g' | sed -e 's/<a .*href=['"'"'"]//' -e 's/["'"'"'].*$//' -e '/^$/ d')
+    NEWEST_ZIP_FILE=$(echo $NEWEST_ZIP_URI | sed -e "s/https:\/\/minecraft.azureedge.net\/bin-linux\///")
+    NEWEST_VERSION=$(echo $NEWEST_ZIP_URI | sed -e "s/^[^0-9]*//" | sed -e "s/\.zip//")
+
+    NEW_DIR="$SERVER_ROOT/minecraft_server_bedrock/$SERVER_PREFIX$NEWEST_VERSION"
+
+    if [[ -d "$NEW_DIR" ]]
+    then
+        echo "Minecraft Bedrock $NEWEST_VERSION already installed"
+        exit
+    fi
+
+    echo "Attempting to upgrade Minecraft Server"
+    mkdir $NEW_DIR
+    cd $NEW_DIR
+    wget $NEWEST_ZIP_URI
+    unzip $NEWEST_ZIP_FILE
+    rm $NEWEST_ZIP_FILE
+	
+	if [ ! -d "$SERVER_ROOT/worlds" ]; then
+	
+		mkdir -p $SERVER_ROOT/worlds worlds
+		
+	fi
+	
+	if [ ! -d "$SERVER_ROOT/minecraft_configs" ]; then
+	
+		mkdir -p $SERVER_ROOT/minecraft_configs
+		mv server.properties $SERVER_ROOT/minecraft_configs/
+		mv *.json $SERVER_ROOT/minecraft_configs/
+		
+	fi
+	
+    ln -nsf $SERVER_ROOT/worlds worlds
+    ln -nsf $SERVER_ROOT/minecraft_configs/* ./
+	
+    echo "Minecraft Server Upgraded!, you need to restart server for changes to take affected"
+
+}
+
+backup () {
+
+
+    cd $SERVER_ROOT/worlds/
+
+    tar -cvzf $WORLDNAME\_$EXPORTDATE.tar.gz $WORLDNAME
+    mv $WORLDNAME\_$EXPORTDATE.tar.gz $SERVER_ROOT/world_backups/
+
+    cd ~/
+
+}
+
+restore () {    
+
+    cd $SERVER_ROOT/worlds/
+
+    LAST_BACKUP=$(ls -t $SERVER_ROOT/world_backups | head -n1)
+
+    read -r -p "Attempting to restore backup $LAST_BACKUP. Are You Sure? [Y/n] " input
+
+    case $input in
+        [yY][eE][sS]|[yY])
+            count_down "We are restoring the server, shutdown in 5 minutes!" 300
+            stop
+            echo "Restoring..."
+            cp $SERVER_ROOT/world_backups/$LAST_BACKUP ./
+            tar -xvzf $LAST_BACKUP    
+            start
+            ;;
+        [nN][oO]|[nN])
+            echo "Restore Canceled!"
+            ;;
+        *)
+            echo "Invalid input..."
+           ;;
+    esac
+    
+    cd ~/
+
+}
+
+export () {
+
+
+    cd $SERVER_ROOT/worlds/
+
+    zip -r $WORLDNAME\_$EXPORTDATE.zip $WORLDNAME
+
+    mv $WORLDNAME\_$EXPORTDATE.zip $EXPORT_FOLDER    
+    chown $EXPORT_OWNER $EXPORT_FOLDER/$WORLDNAME\_$EXPORTDATE.zip
+
+    echo "World exported to $EXPORT_FOLDER/$WORLDNAME\_$EXPORTDATE.zip for $EXPORT_OWNER"
+    cd ~/
+
+}
+
+import () {
+    
+
+    cd $SERVER_ROOT/worlds/
+
+    LAST_IMPORT=$(ls -t $EXPORT_FOLDER | head -n1)
+
+    read -r -p "Attempting to import $LAST_IMPORT. Are You Sure? [Y/n] " input
+    
+    case $input in
+        [yY][eE][sS]|[yY])
+            echo "Importing..."
+            cp $EXPORT_FOLDER/$LAST_IMPORT ./
+            chown root:root $EXPORT_FOLDER/$LAST_IMPORT
+            unzip $LAST_IMPORT
+            rm $LAST_IMPORT
+            echo "World imported from $EXPORT_FOLDER/$LAST_IMPORT"
+            ;;
+        [nN][oO]|[nN])
+            echo "Import Canceled!"
+            ;;
+        *)
+            echo "Invalid input..."
+           ;;
+    esac
+
+    cd ~/
+
+
+}
+
+case $1 in
+
+    'start')
+        start
+        ;;
+    'status')
+        status
+        ;;
+    'stop')
+        stop
+        ;;
+    'restart')
+        stop
+        start 
+        ;;
+    'logs')
+        echo "Last logs from Minecraft Server"
+        tail $LOG_FILE
+        ;;
+    'upgrade')
+        upgrade
+        ;;
+    'version')
+        echo "Current version of Minecraft Server is $VERSION"
+        ;;
+    'backup')
+        count_down "We are backing up the server, shutdown in 5 minutes!" $SDC
+        echo "Backing up the current world"
+        stop
+        backup
+        start
+        ;;
+    'restore')
+        restore
+        ;;
+    'export')
+        count_down "We are exporting the server, shutdown in 5 minutes!" $SDC
+        echo "Exporting the current world for download"
+        stop
+        export
+        start
+        ;;
+    'import')
+        count_down "We are importing the server, shutdown in 5 minutes!" $SDC
+        echo "Importing the current world from upload"
+        stop
+        import
+        start
+        ;;
+    'cmd')
+        echo "Running command $2"
+        command_to_screen "$2"
+        sleep 1s    
+        tail $LOG_FILE
+        ;;
+	'world')
+		current_world_name
+		;;
+	'init')
+		init
+		;;
+    *)
+        echo "Didn't recongnize command $1"
+        usage
+        ;;
+
+esac
+
