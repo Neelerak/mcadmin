@@ -208,7 +208,10 @@ upgrade () {
     fi
     
     ln -nsf $SERVER_ROOT/worlds worlds
-    ln -nsf $SERVER_ROOT/minecraft_configs/* ./
+    
+    ln -nsf $SERVER_ROOT/minecraft_configs/permissions.json ./
+    ln -nsf $SERVER_ROOT/minecraft_configs/whitelist.json ./
+    ln -nsf $SERVER_ROOT/minecraft_configs/server.properties ./
 	
     echo "Minecraft Server Upgraded!, you need to restart server for changes to take affected"
 
