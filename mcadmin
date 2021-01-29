@@ -187,12 +187,12 @@ upgrade () {
     unzip $NEWEST_ZIP_FILE
     rm $NEWEST_ZIP_FILE
 	
-	if [ ! -d "$SERVER_ROOT/worlds" ]; then
-	
-		mkdir -p $SERVER_ROOT/worlds worlds
-		
-	fi
-	
+	if [ ! -d "$SERVER_ROOT/minecraft_configs" ]; then
+    
+        mkdir -p $SERVER_ROOT/worlds
+
+    fi
+
 	if [ ! -d "$SERVER_ROOT/minecraft_configs" ]; then
 	
 		mkdir -p $SERVER_ROOT/minecraft_configs
@@ -201,6 +201,12 @@ upgrade () {
 		
 	fi
 	
+    if [ -d "worlds" ]; then
+
+        rm -rf worlds
+
+    fi
+
     ln -nsf $SERVER_ROOT/worlds worlds
     ln -nsf $SERVER_ROOT/minecraft_configs/* ./
 	
